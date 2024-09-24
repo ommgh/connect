@@ -1,19 +1,23 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { X } from "lucide-react";
 
 export default function Connect4Game() {
-  const [board, setBoard] = useState<(null | "red" | "yellow")[][]>(
+  const [board, setBoard] = useState<(null | "red" | "blue")[][]>(
     Array(6)
       .fill(null)
       .map(() => Array(7).fill(null))
   );
-  const [currentPlayer, setCurrentPlayer] = useState<"red" | "yellow">("red");
-  const [winner, setWinner] = useState<"red" | "yellow" | "draw" | null>(null);
+  const [currentPlayer, setCurrentPlayer] = useState<"red" | "blue">("red");
+  const [winner, setWinner] = useState<
+    "red" | "blue" | "draw" | "timeout" | null
+  >(null);
+  const [redTime, setRedTime] = useState(120); // 2 minutes in seconds
+  const [blueTime, setBlueTime] = useState(120);
 
   const checkWinner = useCallback(
-    (row: number, col: number, player: "red" | "yellow") => {
+    (row: number, col: number, player: "red" | "blue") => {
       const directions = [
         [1, 0],
         [0, 1],
@@ -78,7 +82,7 @@ export default function Connect4Game() {
     } else if (newBoard.every((row) => row.every((cell) => cell !== null))) {
       setWinner("draw");
     } else {
-      setCurrentPlayer(currentPlayer === "red" ? "yellow" : "red");
+      setCurrentPlayer(currentPlayer === "red" ? "blue" : "red");
     }
   };
 
@@ -90,6 +94,42 @@ export default function Connect4Game() {
     );
     setCurrentPlayer("red");
     setWinner(null);
+    setRedTime(120);
+    setBlueTime(120);
+  };
+
+  useEffect(() => {
+    if (winner) return;
+
+    const timer = setInterval(() => {
+      if (currentPlayer === "red") {
+        setRedTime((prevTime) => {
+          if (prevTime <= 1) {
+            clearInterval(timer);
+            setWinner("timeout");
+            return 0;
+          }
+          return prevTime - 1;
+        });
+      } else {
+        setBlueTime((prevTime) => {
+          if (prevTime <= 1) {
+            clearInterval(timer);
+            setWinner("timeout");
+            return 0;
+          }
+          return prevTime - 1;
+        });
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [currentPlayer, winner]);
+
+  const formatTime = (time: number) => {
+    const minutes = Math.floor(time / 60);
+    const seconds = time % 60;
+    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
   };
 
   return (
@@ -98,9 +138,12 @@ export default function Connect4Game() {
         <h1 className="text-2xl font-bold tracking-wide">CONNECT 4</h1>
         <button
           onClick={resetGame}
-          className="bg-red-600 text-white px-4 py-2 rounded flex items-center text-sm sm:text-base"
+          className={`${
+            winner ? "bg-green-600" : "bg-red-600"
+          } text-white px-4 py-2 rounded flex items-center text-sm sm:text-base`}
         >
-          ABORT GAME <X className="ml-2" size={20} />
+          {winner ? "RESTART GAME" : "ABORT GAME"}
+          <X className="ml-2" size={20} />
         </button>
       </nav>
 
@@ -134,15 +177,26 @@ export default function Connect4Game() {
           {winner
             ? winner === "draw"
               ? "IT'S A DRAW!"
+              : winner === "timeout"
+              ? `PLAYER ${
+                  currentPlayer === "red" ? "BLUE" : "RED"
+                } WINS BY TIMEOUT!`
               : `PLAYER ${winner.toUpperCase()} WINS!`
             : "YOUR TURN"}
         </div>
         {!winner && (
-          <div
-            className={`w-4 h-4 rounded-full ${
-              currentPlayer === "red" ? "bg-red-500" : "bg-blue-800"
-            }`}
-          />
+          <div className="flex items-center">
+            <div
+              className={`w-4 h-4 rounded-full ${
+                currentPlayer === "red" ? "bg-red-500" : "bg-blue-800"
+              }`}
+            />
+            <span className="ml-2">
+              {currentPlayer === "red"
+                ? formatTime(redTime)
+                : formatTime(blueTime)}
+            </span>
+          </div>
         )}
       </footer>
     </div>
